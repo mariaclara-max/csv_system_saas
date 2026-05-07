@@ -1,581 +1,154 @@
-DOCUMENTACIÓN TÉCNICA COMPLETA DEL SISTEMA
+Documentación Técnica: Sistema de Gestión de Consolas SaaS
 
-Sistema de procesamiento de CSV + clasificación de errores + reporting
+Este sistema está diseñado para automatizar el procesamiento, clasificación y auditoría 
 
-1. DESCRIPCIÓN GENERAL
+de reportes de rebotes de correo electrónico (CSV), organizando la información por 
 
-Este sistema es un pipeline automatizado para el procesamiento de archivos CSV de rebotes 
+"consolas" (clientes o proyectos) y manteniendo una base de datos histórica para detectar 
 
-de email. Su objetivo es:
+recurrencias.
 
+🏗️ 1. Arquitectura de Archivos (Estructura de Carpetas)
 
-Ingesta de CSV por “consolas”
+El sistema utiliza una estructura jerárquica basada en una ruta raíz (BASE_PATH). Por 
 
+cada consola en config.py, se crean las siguientes subcarpetas:
 
-Validación estructural y sintáctica
+ENTRADA_DIR: Punto de recepción de archivos CSV nuevos.
 
+PROCESSED_DIR: Histórico de archivos procesados con éxito.
 
-Clasificación de errores de email (SMTP y delivery)
+ERROR_DIR: Archivos que fallaron las reglas de integridad o sintaxis.
 
+BBDD_DIR: Almacena la base de datos SQLite (data.db).
 
-Separación de datos (internal / hard bounce)
+LOGS_DIR: Reportes de errores, auditoría, dominios y blacklist.
 
+INTERNAL_DIR: Almacena el archivo internal.csv con rebotes de tipo interno.
 
-Persistencia en SQLite
+HARD_DOMINIO_DIR: Almacena el archivo hard.csv con rebotes permanentes.
 
+BACKUPS_DIR: Copias de seguridad automáticas de la DB y resultados.
 
-Detección de duplicados y blacklist
+⚙️ 2. Módulos del Sistema
 
+📂 config.py (Configuración Global)
 
-Generación de reportes analíticos
+Define las constantes del sistema:
 
+BASE_PATH: Ruta absoluta de trabajo.
 
-Organización automática de archivos
+CONSOLAS: Lista de nombres de las carpetas de proyectos (ej. "OverQuota", "Mistral_01").
 
+CHUNK_SIZE: 100,000 líneas (optimización de memoria para archivos grandes).
 
+EXPECTED_COLUMNS: Columnas requeridas (Email, Bounce type, Message, Date added).
 
-2. ARQUITECTURA GENERAL
-   
-El sistema está dividido en módulos independientes:
+🧠 classifier.py (Motor de Clasificación)
 
-classifier.py
+Contiene la función clasificar_error(msg). Utiliza lógica de coincidencia de palabras
 
-config.py
+clave para categorizar los errores de SMTP.
 
-db.py
+Categorías principales: QUOTA_EXCEEDED, MAILBOX_NOT_FOUND, CONNECTION_ERROR, 
 
-domain_logger.py
+GMAIL_RATE_LIMIT, LOW_REPUTATION_OR_IP_BLOCKED (específico para IPs bloqueadas y
 
-error_logger.py
+Cloudmark), y ARUBA_SPECIFIC_BLOCK.
 
-internal_logger.py
+🗄️ db.py (Gestión de Persistencia)
 
-blacklist_logger.py
+Gestiona la base de datos SQLite:
 
-processor.py
+Tabla hard_emails: Almacena el email, el mensaje de error y la fecha. Tiene una 
 
-storage_manager.py (externo)
+restricción UNIQUE para evitar duplicidad exacta de registros.
 
-utils.pymain.py
+Tabla files_processed: Registra el hash de los archivos procesados para evitar re-
 
-4. CONFIGURACIÓN (config.py)
-   
-Objetivo
+procesamiento.
 
-Define la estructura global del sistema.
+🔍 error_logger.py (Auditoría e Integridad)
 
-Variables principales
 
-BASE_PATH
+Es el filtro de calidad antes de procesar los datos:
 
-Ruta raíz donde están las consolas.
+Validación de Nombre: El archivo debe seguir el patrón bounce-stats-ID-YYYY-MM-DD-HH-MM-
 
-CONSOLAS
+SS.csv.
 
-Lista de entornos de trabajo:
+Validación de Sintaxis: Comprueba que las columnas existan, los emails tengan @, el tipo 
 
+de rebote sea válido y las fechas no estén corruptas.
 
-OverQuota
+Generación de Log: Si hay errores, mueve el archivo a ERROR_DIR y escribe el motivo 
 
+detallado en Error_log.log.
 
-DS
+📈 domain_logger.py (Reporte de Proveedores)
 
+Agrupa los rebotes por proveedor (Gmail, Microsoft, Aruba, ItaliaOnline, etc.) basándose 
 
-Or_1 → Or_5
+en el dominio del email. Genera un glosario y estadísticas porcentuales para identificar 
 
+si un bloqueo es generalizado en un proveedor específico.
 
-Lore_1 → Lore_2
+📝 internal_logger.py (Reporte de Errores Internos)
 
+Agrupa y contabiliza los errores de tipo 'Internal' por fecha de creación del CSV. 
 
-New_1 → New_2
+Incluye un glosario de categorías para facilitar la lectura del reporte final.
 
+🚫 blacklist_logger.py (Detección de Recurrencias)
 
-Mistral_01 → Mistral_03
+Escribe en blacklist.log aquellos emails que aparecen como Hard Bounce en fechas 
 
+distintas. Esto permite identificar correos que deben ser eliminados definitivamente de 
 
+las listas de envío.
 
-Estructura interna por consola
+💾 storage_manager.py (Mantenimiento de Almacenamiento)
 
+Encargado de la higiene del sistema:
 
-ENTRADA_DIR → CSV de entrada
+Rotación: Elimina backups con más de X días de antigüedad.
 
+Compresión: Comprime logs antiguos en archivos .zip mensualmente.
 
-BBDD_DIR → base de datos SQLite
+Archivado: Mueve archivos procesados a carpetas históricas organizadas por mes.
 
+🚀 3. Flujo de Ejecución (main.py y processor.py)
 
-LOGS_DIR → logs del sistema
+Inicio: El usuario elige entre "Crear estructura" (Setup) o "Procesar CSV".
 
+Preparación: El sistema mueve los CSV detectados en la raíz de cada consola a su 
 
-HARD_DOMINIO_DIR → exportación de rebotes críticos
+respectiva carpeta ENTRADA_DIR.
 
+Backup: Se realiza una copia de seguridad de la base de datos y archivos CSV actuales 
 
-INTERNAL_DIR → rebotes internos
+antes de cualquier cambio.
 
+Auditoría: Se valida el nombre y la estructura de cada CSV.
 
-PROCESSED_DIR → archivos procesados
+Procesamiento por Chunks:
 
+Los rebotes Internal se añaden a internal.csv.
 
-ERROR_DIR → archivos con errores
+Los rebotes Hard se comparan con la DB:
 
+Si el email + mensaje ya existen pero con fecha distinta, se marca para la Blacklist.
 
+Si no existen, se insertan como nuevos registros.
 
-Parámetros técnicos
+Finalización: Se generan los reportes de dominios, errores internos y blacklist. Los 
 
+archivos procesados se mueven a la carpeta de salida definitiva.
 
-CHUNK_SIZE = 100000 → procesamiento de grandes CSV
+🛠️ 4. Funciones de Utilidad (utils.py / logger.py)
 
+file_hash(path): Genera un hash MD5 único por archivo para control de integridad.
 
-EXPECTED_COLUMNS → validación de estructura CSV
+log(path, text): Función genérica de escritura para seguimiento de procesos en tiempo 
 
-
-
-4. CLASIFICADOR DE ERRORES (classifier.py)
-   
-Función principal
-
-clasificar_error(msg)
-
-Objetivo
-
-Detectar y categorizar errores SMTP/email.
-
-Categorías soportadas
-
-
-QUOTA_EXCEEDED → buzón lleno
-
-
-MAILBOX_NOT_FOUND → email inexistente
-
-
-CONNECTION_ERROR → fallo de red
-
-
-BLOCKED_OR_SPAM → filtrado spam
-
-
-SMTP_ERROR → error genérico SMTP
-
-
-LOW_REPUTATION_OR_IP_BLOCKED → blacklist IP/dominio
-
-
-GMAIL_RATE_LIMIT → exceso de envío Gmail
-
-
-ARUBA_SPECIFIC_BLOCK → bloqueo Aruba.it
-
-
-UNKNOWN_ERROR → sin clasificación
-
-
-
-Funcionamiento
-
-
-Convierte mensaje a minúsculas
-
-
-Busca patrones textuales
-
-
-Devuelve primera coincidencia válida
-
-
-
-5. BASE DE DATOS (db.py)
-   
-Función: init_db(db_path)
-
-Objetivo
-
-Crear y gestionar SQLite.
-
-Tablas
-
-hard_emails
-
-Almacena rebotes críticos.
-
-Campos:
-
-
-email
-
-
-message
-
-
-date_added
-
-
-file_name
-
-
-processed_at
-
-
-Restricción:
-UNIQUE(email, message, date_added)
-
-files_processed
-Evita reprocesamiento.
-Campos:
-
-
-filename
-
-
-filehash
-
-
-processed_at
-
-
-
-6. DOMAIN LOGGER (domain_logger.py)
-Función: generar_log_dominios(df, consola, output_path)
-Objetivo
-Analizar dominios de email.
-
-Funcionalidades
-
-
-Extrae dominio desde email
-
-
-Clasifica proveedores
-
-
-Genera estadísticas
-
-
-Exporta reporte estructurado
-
-
-
-Clasificación de dominios
-
-
-ITALIAONLINE_GROUP
-
-
-WIND_TRE
-
-
-TIM_ALICE_TIN
-
-
-ARUBA_HOSTING
-
-
-TISCALI
-
-
-GMAIL
-
-
-MICROSOFT
-
-
-OTROS_DOMINIOS
-
-
-
-Output
-
-
-total emails analizados
-
-
-porcentaje por proveedor
-
-
-top dominios por grupo
-
-
-
-7. ERROR LOGGER (error_logger.py)
-Objetivo
-Validación de archivos CSV + auditoría.
-
-1. validar_integridad_archivo()
-Regla:
-bounce-stats-ID-FECHA.csv
-Si falla:
-
-
-mueve archivo a ERROR_DIR
-
-
-escribe en audit log
-
-
-
-2. validar_sintaxis_csv()
-Valida:
-
-
-columnas obligatorias
-
-
-email válido (@)
-
-
-Bounce type válido
-
-
-fecha válida
-
-
-Si falla:
-
-
-registra errores detallados
-
-
-mueve archivo a ERROR_DIR
-
-
-
-3. generar_error_log()
-Agrupa errores usando classifier.py y genera resumen.
-
-8. INTERNAL LOGGER (internal_logger.py)
-Función: generar_internal_log()
-Objetivo
-Agrupar errores internos por fecha.
-
-Proceso
-
-
-Limpieza de columnas
-
-
-Normalización de fechas
-
-
-Clasificación de errores
-
-
-Agrupación por día
-
-
-
-Output
-CONSOLA: XFECHA CREACION CSV: XX/XX/XXXXMENSAJE: ERROR TYPENUM_TOTAL_MENSAJE: N
-
-9. BLACKLIST LOGGER (blacklist_logger.py)
-Función: write_blacklist()
-Objetivo
-Registrar duplicados entre ejecuciones.
-
-Condición
-Solo escribe si hay duplicados.
-
-Contenido
-
-
-nombre consola
-
-
-fecha descarga
-
-
-fecha CSV
-
-
-lista emails duplicados
-
-
-total duplicados
-
-
-
-10. PROCESSOR (processor.py) — NÚCLEO DEL SISTEMA
-Objetivo
-Orquestar todo el pipeline.
-
-Flujo general
-1. BACKUP
-
-
-Base de datos
-
-
-logs
-
-
-resultados anteriores
-
-
-
-2. VALIDACIÓN
-
-
-nombre archivo
-
-
-estructura CSV
-
-
-sintaxis interna
-
-
-
-3. PROCESAMIENTO
-Separación:
-INTERNAL
-
-
-guardado incremental
-
-
-logging
-
-
-HARD BOUNCE
-
-
-persistencia CSV
-
-
-detección duplicados
-
-
-inserción SQLite
-
-
-
-4. DETECCIÓN DE DUPLICADOS
-Si:
-
-
-email existe
-
-
-mensaje coincide
-
-
-fecha cambia
-
-
-→ se añade a blacklist
-
-5. PERSISTENCIA
-
-
-commit en SQLite
-
-
-
-6. REPORTING
-Genera:
-
-
-internal logs
-
-
-dominios
-
-
-blacklist
-
-
-
-11. UTILIDADES (utils.py)
-Función: file_hash(path)
-Objetivo
-Generar hash MD5 de archivo.
-Uso
-
-
-detectar archivos duplicados
-
-
-evitar reprocesamiento
-
-
-
-12. FLUJO COMPLETO DEL SISTEMA
-CSV ENTRADA
-
-  ↓VALIDACIÓN (nombre + estructura + sintaxis)  
-  
-  ↓CHUNK PROCESSING   
-  
-  ↓SEPARACIÓN:  
-  
-  ├── INTERNAL 
-  
-  └── HARD BOUNCE  
-  
-  ↓SQLite + CSV logs  
-  
-  ↓CLASIFICACIÓN DE ERRORES 
-  
-  ↓REPORTES:  
-  
-  ├── dominios  
-  
-  ├── internal logs  
-  
-  ├── blacklist   └── auditoría
-
-14. PUNTOS CRÍTICOS
-Problemas detectados
-
-
-lógica duplicada en classifier.py
-
-
-inconsistencias en rutas de base de datos
-
-
-errores de scope en error_logger.py
-
-
-regex desalineados en internal_logger
-
-
-mezcla de responsabilidades en algunos módulos
-
-
-
-14. FORTALEZAS DEL SISTEMA
-    
-✔ Procesamiento por chunks (escala grande)
-
-✔ Arquitectura modular
-
-✔ Persistencia en SQLite
-
-✔ Sistema de auditoría completo
-
-✔ Detección de duplicados inteligente
-
-✔ Logging detallado por niveles
-
-✔ Separación de tipos de rebote
-
-16. CONCLUSIÓN
-Este sistema implementa un pipeline completo de procesamiento de rebotes de email con:
-
-
-análisis de datos a gran escala
-
-
-clasificación heurística de errores
-
-
-persistencia estructurada
-
-
-generación de reportes avanzados
-
-
-control de duplicados y auditoría
-
-
-Es una arquitectura funcional tipo “ETL + Email Intelligence Engine”.
-
+real.
