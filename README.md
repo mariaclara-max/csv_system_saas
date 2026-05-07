@@ -457,9 +457,31 @@ evitar reprocesamiento
 
 
 12. FLUJO COMPLETO DEL SISTEMA
-CSV ENTRADA   ↓VALIDACIÓN (nombre + estructura + sintaxis)   ↓CHUNK PROCESSING   ↓SEPARACIÓN:   ├── INTERNAL   └── HARD BOUNCE   ↓SQLite + CSV logs   ↓CLASIFICACIÓN DE ERRORES   ↓REPORTES:   ├── dominios   ├── internal logs   ├── blacklist   └── auditoría
+CSV ENTRADA
 
-13. PUNTOS CRÍTICOS
+  ↓VALIDACIÓN (nombre + estructura + sintaxis)  
+  
+  ↓CHUNK PROCESSING   
+  
+  ↓SEPARACIÓN:  
+  
+  ├── INTERNAL 
+  
+  └── HARD BOUNCE  
+  
+  ↓SQLite + CSV logs  
+  
+  ↓CLASIFICACIÓN DE ERRORES 
+  
+  ↓REPORTES:  
+  
+  ├── dominios  
+  
+  ├── internal logs  
+  
+  ├── blacklist   └── auditoría
+
+14. PUNTOS CRÍTICOS
 Problemas detectados
 
 
