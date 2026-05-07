@@ -1,8 +1,12 @@
 DOCUMENTACIÓN TÉCNICA COMPLETA DEL SISTEMA
+
 Sistema de procesamiento de CSV + clasificación de errores + reporting
 
 1. DESCRIPCIÓN GENERAL
-Este sistema es un pipeline automatizado para el procesamiento de archivos CSV de rebotes de email. Su objetivo es:
+
+Este sistema es un pipeline automatizado para el procesamiento de archivos CSV de rebotes 
+
+de email. Su objetivo es:
 
 
 Ingesta de CSV por “consolas”
@@ -31,16 +35,43 @@ Organización automática de archivos
 
 
 2. ARQUITECTURA GENERAL
+   
 El sistema está dividido en módulos independientes:
-classifier.pyconfig.pydb.pydomain_logger.pyerror_logger.pyinternal_logger.pyblacklist_logger.pyprocessor.pystorage_manager.py (externo)utils.pymain.py
 
-3. CONFIGURACIÓN (config.py)
+classifier.py
+
+config.py
+
+db.py
+
+domain_logger.py
+
+error_logger.py
+
+internal_logger.py
+
+blacklist_logger.py
+
+processor.py
+
+storage_manager.py (externo)
+
+utils.pymain.py
+
+4. CONFIGURACIÓN (config.py)
+   
 Objetivo
+
 Define la estructura global del sistema.
+
 Variables principales
+
 BASE_PATH
+
 Ruta raíz donde están las consolas.
+
 CONSOLAS
+
 Lista de entornos de trabajo:
 
 
@@ -99,9 +130,13 @@ EXPECTED_COLUMNS → validación de estructura CSV
 
 
 4. CLASIFICADOR DE ERRORES (classifier.py)
+   
 Función principal
+
 clasificar_error(msg)
+
 Objetivo
+
 Detectar y categorizar errores SMTP/email.
 
 Categorías soportadas
@@ -149,13 +184,19 @@ Devuelve primera coincidencia válida
 
 
 5. BASE DE DATOS (db.py)
+   
 Función: init_db(db_path)
+
 Objetivo
+
 Crear y gestionar SQLite.
 
 Tablas
+
 hard_emails
+
 Almacena rebotes críticos.
+
 Campos:
 
 
@@ -502,15 +543,22 @@ mezcla de responsabilidades en algunos módulos
 
 
 14. FORTALEZAS DEL SISTEMA
+    
 ✔ Procesamiento por chunks (escala grande)
+
 ✔ Arquitectura modular
+
 ✔ Persistencia en SQLite
+
 ✔ Sistema de auditoría completo
+
 ✔ Detección de duplicados inteligente
+
 ✔ Logging detallado por niveles
+
 ✔ Separación de tipos de rebote
 
-15. CONCLUSIÓN
+16. CONCLUSIÓN
 Este sistema implementa un pipeline completo de procesamiento de rebotes de email con:
 
 
