@@ -50,11 +50,18 @@ Contiene la función clasificar_error(msg). Utiliza lógica de coincidencia de p
 
 clave para categorizar los errores de SMTP.
 
-Categorías principales: QUOTA_EXCEEDED, MAILBOX_NOT_FOUND, CONNECTION_ERROR, 
+Categorías principales:
+QUOTA_EXCEEDED,
 
-GMAIL_RATE_LIMIT, LOW_REPUTATION_OR_IP_BLOCKED (específico para IPs bloqueadas y
+MAILBOX_NOT_FOUND, 
 
-Cloudmark), y ARUBA_SPECIFIC_BLOCK.
+CONNECTION_ERROR, 
+
+GMAIL_RATE_LIMIT,
+
+LOW_REPUTATION_OR_IP_BLOCKED (específico para IPs bloqueadas y Cloudmark), 
+
+y ARUBA_SPECIFIC_BLOCK.
 
 🗄️ db.py (Gestión de Persistencia)
 
