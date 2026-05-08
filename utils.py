@@ -20,18 +20,18 @@ def file_hash(path):
     # Devolvemos la huella única del archivo
     return h.hexdigest()
 
-def barra_progreso(actual, total, prefijo='', sufijo='', decimales=1, largo=50, relleno='█', sin_relleno='-'):
+def barra_progreso(actual, total, consola='', largo=40):
     """
-    Imprime una barra de progreso en la consola.
+    Dibuja una barra de carga profesional. 
+    Asegúrate de que el argumento 'consola' esté definido aquí.
     """
-    porcentaje = ("{0:." + str(decimales) + "f}").format(100 * (actual / float(total)))
-    llenado = int(largo * actual // total)
-    barra = relleno * llenado + sin_relleno * (largo - llenado)
+    progreso = int((actual / total) * largo)
+    porcentaje = int((actual / total) * 100)
+    barra = "█" * progreso + "-" * (largo - progreso)
     
-    # \r vuelve al inicio de la línea sin saltar
-    sys.stdout.write(f'\r{prefijo} |{barra}| {porcentaje}% {sufijo}')
+    # Escribe la línea y usa \r para volver al inicio sin saltar de línea
+    sys.stdout.write(f"\rProcesando {consola:12} |[{barra}]| {porcentaje}%")
     sys.stdout.flush()
     
-    # Salto de línea al terminar
     if actual == total:
-        print()
+        print() # Salto de línea final al terminar todas las consolas
