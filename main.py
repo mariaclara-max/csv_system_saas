@@ -1,5 +1,5 @@
+# main.py 
 import shutil
-
 from config import BASE_PATH, CONSOLAS
 from db import init_db
 from processor import process_consola
